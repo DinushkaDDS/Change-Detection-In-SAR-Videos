@@ -5,17 +5,38 @@ import numpy as np
 fileName = "/home/dilan/Desktop/Final Year Project/Programming Testing/Filter Test/Videos/CleanNew.mp4"
 
 # Parameters for Lucas Kanade optical flow
-lkparams = dict(winSize=(7, 7), #Small windows are more sensitive to noise and may miss larger motions. Large windows will “survive” an occlusion.
+lkparams = dict(winSize=(5, 5),
                  maxLevel=0,
                  criteria=(cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 5, 0.05))
+pointStep = 25
 
-#max number (10 above) of iterations and epsilon (0.03 above).
-# More iterations means a more exhaustive search, and a smaller epsilon finishes earlier
+params = cv2.SimpleBlobDetector_Params()
+# Change thresholds for intensity. hence the blobs are dark thresholds should be low
+params.minThreshold = 0
+params.maxThreshold = 125
 
-pointStep = 25  #Parameter to provide the point distribution throughout the frame
+# Filter by Area.
+params.filterByArea = True
+params.minArea = 100  #Should be set according to a
+                        # ratio between considering area and actual expecting object size
+params.maxArea = np.pi*15*15
+# Filter by Circularity
+params.filterByCircularity = True
+params.minCircularity = 0.1
+params.maxCircularity = 0.9
+# Filter by Convexity
+params.filterByConvexity = True
+params.minConvexity = 0.5
+params.maxConvexity = 0.9
+# Filter by Inertia.
+params.filterByInertia = True
+params.minInertiaRatio = 0.1
+params.maxInertiaRatio = 0.9
 
-avgMagnitude = 0
-avgTangentVal = 0
+
+detector = cv2.SimpleBlobDetector_create(params)
+MagnitudeAVG = 0
+TanAVG = 0
 
 #Generate Initial values for the lk method
 def initialValuesLK(initialFrame, pointStep):
@@ -43,15 +64,19 @@ def initialValuesLK(initialFrame, pointStep):
 def findTanAndMag(index, pointsCurr, pointsRef):
     if(pointsCurr.ndim == 3 ):
 
-        x_diff = pointsCurr[index][0][0] - pointsRef[index][0][0]
-        y_diff = pointsCurr[index][0][1] - pointsRef[index][0][1]
+        x_diff = abs(pointsCurr[index][0][0] - pointsRef[index][0][0])
+        y_diff = abs(pointsCurr[index][0][1] - pointsRef[index][0][1])
     else:
 
-        x_diff = pointsCurr[index][0] - pointsRef[index][0]
-        y_diff = pointsCurr[index][1] - pointsRef[index][1]
+        x_diff = abs(pointsCurr[index][0] - pointsRef[index][0])
+        y_diff = abs(pointsCurr[index][1] - pointsRef[index][1])
 
-    tanValue = y_diff/x_diff
-    magnitude = np.sqrt(x_diff**2 + y_diff**2)
+    if(x_diff!=0):
+        tanValue = np.arctan(y_diff/x_diff)
+    else:
+        tanValue = np.pi/2
+
+    magnitude = x_diff**2 + y_diff**2
     return tanValue, magnitude
 
 #This function ignores the windowSize number of rows and columns from the frame edges
@@ -77,15 +102,29 @@ def checkThreshold(index, pointsCurr, pointsRef, numOfRows, numOfColumns, window
     avgMag = magnitudeSum/totalPoints
     currTan, currMag = findTanAndMag(index, pointsCurr, pointsRef)
 
-    print(avgTan)
+    global TanAVG
+    global MagnitudeAVG
 
+    if(TanAVG !=0):
+        TanAVG = (TanAVG + avgTan)/2
+    elif(TanAVG == 0):
+      TanAVG = avgTan
+
+    if (MagnitudeAVG != 0):
+        MagnitudeAVG = (MagnitudeAVG + avgMag) / 2
+    elif (MagnitudeAVG == 0):
+        MagnitudeAVG = avgMag
+
+    # print(MagnitudeAVG, TanAVG)
+
+    if(avgTan == 0 or avgMag == 0):
+        return False
     varTan = abs(avgTan-currTan)/avgTan
-    varMag = abs(avgMag - currMag)/avgMag
-    global avgMagnitude
+    varMag = abs(avgMag-currMag)/avgMag
 
-    print(avgMag)
 
     if(varMag>threshold and varTan>threshold):
+        print(avgTan, avgMag)
         return True
     else:
         return False
@@ -94,7 +133,6 @@ def checkThreshold(index, pointsCurr, pointsRef, numOfRows, numOfColumns, window
 def findRowAndCol(index, numofRows, numofColumns):
     row = 0
     column = 0
-
     while(index != (numofColumns*row + column)):
 
         column = column + 1
@@ -104,7 +142,7 @@ def findRowAndCol(index, numofRows, numofColumns):
 
         if(row> numofRows):
             return None
-    print(index, numofRows, numofColumns, row, column)
+
     return row, column
 
 #Function to get the index when row,column coordinate is given
@@ -112,7 +150,7 @@ def findIndex(row, column, numOfColumns):
     return (row*numOfColumns + column)
 
 #Compare the points and points next and return a array with deviated values
-def filterPoints(points_ref, points_curr, counterArr, statusArr, numRows, numColumns, threshold=5, marked = False):
+def filterPoints(points_ref, points_curr, counterArr, statusArr, numRows, numColumns, threshold=(MagnitudeAVG, TanAVG), marked = False):
     interest_points = []
     new_counterArr = []
 
@@ -122,7 +160,7 @@ def filterPoints(points_ref, points_curr, counterArr, statusArr, numRows, numCol
             if (checkThreshold(i, points_curr, points_ref, numRows, numColumns) and statusArr[i]==1):
                 interest_points.append([points_curr[i], points_ref[i]])
                 new_counterArr.append(0)
-        # print(interest_points)
+
         return interest_points, new_counterArr
 
     else:
@@ -133,10 +171,16 @@ def filterPoints(points_ref, points_curr, counterArr, statusArr, numRows, numCol
                 counterArr[i] = counterArr[i] + 1
             else:
 
-                x_diff = points_curr[i][0][0] - points_ref[i][0][0]
-                y_diff = points_curr[i][0][1] - points_ref[i][0][1]
+                x_diff = abs(points_curr[i][0][0] - points_ref[i][0][0])
+                y_diff = abs(points_curr[i][0][1] - points_ref[i][0][1])
 
-                if (np.sqrt(x_diff ** 2 + y_diff ** 2) >= threshold):
+                if (x_diff != 0):
+                    tanValue = np.arctan(y_diff / x_diff)
+                else:
+                    tanValue = np.pi / 2
+
+                #improve this Part of Thresholding
+                if (x_diff ** 2 + y_diff ** 2 >= threshold[0] and tanValue>=threshold[1]):
                     counterArr[i] = 0
                 else:
                     counterArr[i] = counterArr[i] + 1
@@ -197,52 +241,84 @@ def calculateOpticalFlowMarked(frame, frameRef, pointsMarked_ref, counterArr, lk
 
     return interestingPoints_curr, interestingPoints_ref, counterArr
 
-#Main Function to run LK method
-def __main__():
+#Function to points inside the blobs
+def findNeibouringBlob(point, blobPoints, blobSizes):
+
+    x, y = point
+
+    for i in range(len(blobPoints)):
+        x_b, y_b = blobPoints[i]
+        radius = blobSizes[i]/2
+
+        if(abs(x-x_b)<=radius and abs(y-y_b)<=radius):
+            return True
+    else:
+        return False
+
+#Function to get distance between 2 points
+def dist2(p1, p2):
+    return (p1[0]-p2[0])**2 + (p1[1]-p2[1])**2
+
+#Function to merge near points
+def mergePoints(points, counters, threshold=pointStep):
+
+    retPoints = np.array([[[0, 0]]], dtype=np.float32)
+    retCounter = []
+
+    d2 = threshold * threshold
+    n = len(counters)
+    taken = [False] * n
+
+    for i in range(n):
+        if not taken[i]:
+            count = 1
+            x,y = points[i][0]
+            counter = counters[i]
+            taken[i] = True
+            for j in range(i+1, n):
+                if dist2(points[i][0], points[j][0]) < d2:
+                    x = x + points[j][0][0]
+                    y = y + points[j][0][1]
+                    counter = counter + counters[j]
+                    count+=1
+                    taken[j] = True
+            x = x/count
+            y = y/count
+            counter = int(round(counter/count))
+            retPoints =  np.append(retPoints, [[[np.float32(x), np.float32(y)]]], axis=0)
+            retCounter.append(counter)
+
+    retPoints = np.delete(retPoints, 0, axis=0)
+
+    return retPoints, retCounter
+
+
+def _main_():
     videoFile = cv2.VideoCapture(fileName)
 
     ret, frameRef = videoFile.read()
-    while(ret != True):
+    while (ret != True):
         ret, frameRef = videoFile.read()
     frameRef_gray = cv2.cvtColor(frameRef, cv2.COLOR_BGR2GRAY)
 
-    frameRef_gray = filterFrameNormal(frameRef_gray)
-
-    regularPoints, markedPoints_ref, counterArr, mask, numRows, numColumns = initialValuesLK(frameRef, pointStep)
     while videoFile.isOpened():
         ret, frameCurr = videoFile.read()
         frameCurr_gray = cv2.cvtColor(frameCurr, cv2.COLOR_BGR2GRAY)
 
-        frameCurr_gray = filterFrameNormal(frameCurr_gray)
-
         if ret:
-            interestingPointsTemp_curr, interestingPointsTemp_ref, counterArrTemp = \
-                calculateOpticalFlowRegular(frameCurr_gray, frameRef_gray,
-                                            regularPoints, lkparams, numRows, numColumns)
 
-            markedPoints_curr, markedPoints_ref, counterArr = \
-                calculateOpticalFlowMarked(frameCurr_gray, frameRef_gray, markedPoints_ref,
-                                           counterArr, lkparams, numRows, numColumns)
+            blobFrame = cv2.equalizeHist(frameCurr_gray)
+            keypoints = detector.detect(blobFrame)
+            sizes = [x.size for x in keypoints]
+            keypoints = cv2.KeyPoint_convert(keypoints)
 
-            for i in range(len(markedPoints_curr)):
-                new = markedPoints_curr[i]
-                old = markedPoints_ref[i]
-                a, b = new.ravel()
-                c, d = old.ravel()
-                mask = cv2.line(mask, (a, b), (c, d), [0, 255, 0], 1)
-                frameCurr = cv2.circle(frameCurr, (a, b), 5, [255, 0, 0], -1)
 
-            frameRef_gray = frameCurr_gray
-            markedPoints_ref = np.concatenate((markedPoints_curr, interestingPointsTemp_curr), axis=0)
-            counterArr = counterArr + counterArrTemp
 
-            frameCurr = cv2.add(frameCurr, mask)
-            cv2.imshow('frame', frameCurr)
-            if cv2.waitKey(0) & 0xFF == ord('q'):
-                continue
 
-    videoFile.release()
-    cv2.destroyAllWindows()
-    print("Successfully Completed!")
 
-__main__()
+            break
+
+
+
+
+_main_()

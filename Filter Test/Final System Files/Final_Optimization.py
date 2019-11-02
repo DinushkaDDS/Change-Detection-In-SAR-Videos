@@ -2,7 +2,7 @@ from Filter_Frame import *
 import cv2
 import numpy as np
 
-fileName = "/home/dilan/Desktop/Final Year Project/Programming Testing/Filter Test/Videos/CleanNew.mp4"
+fileName = "/home/dilan/Desktop/Final Year Project/Programming Testing/Filter Test/Videos/video1.mp4"
 
 # Parameters for Lucas Kanade optical flow
 lkparams = dict(winSize=(5, 5),
@@ -19,7 +19,7 @@ params.maxThreshold = 125
 params.filterByArea = True
 params.minArea = 100  #Should be set according to a
                         # ratio between considering area and actual expecting object size
-params.maxArea = np.pi*15*15
+params.maxArea = np.pi*12*12
 # Filter by Circularity
 params.filterByCircularity = True
 params.minCircularity = 0.1
@@ -259,6 +259,7 @@ def findNeibouringBlob(point, blobPoints, blobSizes):
 def dist2(p1, p2):
     return (p1[0]-p2[0])**2 + (p1[1]-p2[1])**2
 
+#Function to merge near points
 def mergePoints(points, counters, threshold=pointStep):
 
     retPoints = np.array([[[0, 0]]], dtype=np.float32)
