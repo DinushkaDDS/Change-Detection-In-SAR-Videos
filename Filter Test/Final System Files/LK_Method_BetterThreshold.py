@@ -2,7 +2,7 @@ from Filter_Frame import *
 import cv2
 import numpy as np
 
-fileName = "/home/dilan/Desktop/Final Year Project/Programming Testing/Filter Test/Videos/CleanNew.mp4"
+fileName = "/home/dilan/Desktop/Final Year Project/Programming Testing/Filter Test/Videos/video1.mp4"
 
 # Parameters for Lucas Kanade optical flow
 lkparams = dict(winSize=(7, 7), #Small windows are more sensitive to noise and may miss larger motions. Large windows will “survive” an occlusion.
@@ -206,14 +206,14 @@ def __main__():
         ret, frameRef = videoFile.read()
     frameRef_gray = cv2.cvtColor(frameRef, cv2.COLOR_BGR2GRAY)
 
-    frameRef_gray = filterFrameNormal(frameRef_gray)
+    frameRef_gray = filterFrame(frameRef_gray)
 
     regularPoints, markedPoints_ref, counterArr, mask, numRows, numColumns = initialValuesLK(frameRef, pointStep)
     while videoFile.isOpened():
         ret, frameCurr = videoFile.read()
         frameCurr_gray = cv2.cvtColor(frameCurr, cv2.COLOR_BGR2GRAY)
 
-        frameCurr_gray = filterFrameNormal(frameCurr_gray)
+        frameCurr_gray = filterFrame(frameCurr_gray)
 
         if ret:
             interestingPointsTemp_curr, interestingPointsTemp_ref, counterArrTemp = \

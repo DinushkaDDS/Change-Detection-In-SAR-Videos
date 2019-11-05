@@ -2,13 +2,13 @@ from Filter_Frame import *
 import cv2
 import numpy as np
 
-fileName = "/home/dilan/Desktop/Final Year Project/Programming Testing/Filter Test/Videos/video1.mp4"
+fileName = "/home/dilan/Desktop/Final Year Project/Programming Testing/Filter Test/Videos/CleanNew.mp4"
+pointStep = 25
 
 # Parameters for Lucas Kanade optical flow
-lkparams = dict(winSize=(5, 5),
+lkparams = dict(winSize=(25, 25),
                  maxLevel=0,
                  criteria=(cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 5, 0.05))
-pointStep = 25
 
 params = cv2.SimpleBlobDetector_Params()
 # Change thresholds for intensity. hence the blobs are dark thresholds should be low
@@ -300,7 +300,7 @@ def __main__():
     while(ret != True):
         ret, frameRef = videoFile.read()
     frameRef_gray = cv2.cvtColor(frameRef, cv2.COLOR_BGR2GRAY)
-    # frameRef = filterFrame(frameRef)
+    frameRef = filterFrame(frameRef)
     # frameCurr_gray = cv2.equalizeHist(frameRef_gray)
 
     regularPoints, markedPoints_ref, counterArr, mask, numRows, numColumns = initialValuesLK(frameRef, pointStep)
@@ -308,7 +308,7 @@ def __main__():
         ret, frameCurr = videoFile.read()
         frameCurr_gray = cv2.cvtColor(frameCurr, cv2.COLOR_BGR2GRAY)
 
-        # frameCurr = filterFrame(frameCurr)
+        frameCurr = filterFrame(frameCurr)
 
         if ret:
             interestingPointsTemp_curr, interestingPointsTemp_ref, counterArrTemp = \
@@ -319,7 +319,8 @@ def __main__():
                 calculateOpticalFlowMarked(frameCurr_gray, frameRef_gray, markedPoints_ref,
                                            counterArr, lkparams, numRows, numColumns)
 
-            blobFrame = cv2.equalizeHist(frameCurr_gray)
+            # blobFrame = cv2.equalizeHist(frameCurr_gray)
+            blobFrame = frameCurr_gray
             keypoints = detector.detect(blobFrame)
             sizes = [x.size for x in keypoints]
             keypoints = cv2.KeyPoint_convert(keypoints)

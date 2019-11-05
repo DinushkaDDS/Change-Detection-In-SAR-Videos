@@ -4,7 +4,7 @@ import numpy as np
 
 # Setup SimpleBlobDetector parameters. More details in https://www.learnopencv.com/blob-detection-using-opencv-python-c/
 params = cv2.SimpleBlobDetector_Params()
-cap = cv2.VideoCapture('/home/dilan/Desktop/Final Year Project/Programming Testing/Filter Test/Videos/CleanNew.mp4')
+cap = cv2.VideoCapture('/home/dilan/Desktop/Final Year Project/Programming Testing/Filter Test/Videos/video1.mp4')
 
 # Change thresholds for intensity. hence the blobs are dark thresholds should be low
 params.minThreshold = 0
@@ -43,9 +43,9 @@ while cap.isOpened():
 
     frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
-    # frame = filterFrame(frame)
+    frame = filterFrame(frame)
 
-    frame = cv2.equalizeHist(frame)
+    # frame = cv2.equalizeHist(frame)
 
     keypoints = detector.detect(frame)
 
@@ -62,7 +62,6 @@ while cap.isOpened():
 
     if cv2.waitKey(0) & 0xFF == ord('q'):
         continue
-    # time.sleep(0.5)
 
 else:
     cap.release()
